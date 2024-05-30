@@ -4,22 +4,24 @@ import asyncio
 
 class UserRequest:
     def __init__(self, button_pins):
-        self.animation_select = ["No Scroll", "Scroll Speed 2", "Scroll Speed 10"]
+        self.animation_select = ["No Scroll", "Scroll Speed 2", "Scroll Speed 10", "Heart Monitor"]
         self.selected_animation_index = 0
         self.animation_counter = 0
 
         self.buttons = []
+        self.button_states = []
         for pin in button_pins:
             button = digitalio.DigitalInOut(pin)
             button.direction = digitalio.Direction.INPUT
             button.pull = digitalio.Pull.UP
             self.buttons.append(button)
+            self.button_states.append(button.value)
 
         print(f"UserRequest initialized with animations: {self.animation_select}")
     
     def stop_polling(self):
-      for button in self.buttons:
-          button.deinit()
+        for button in self.buttons:
+            button.deinit()
     
     def get_animation_selected_name(self):
         return self.animation_select[self.selected_animation_index]
@@ -46,16 +48,20 @@ class UserRequest:
         return self.animation_counter
 
     def should_show_speed_indicator(self):
-        show = self.animation_counter > 0
-        return show
+        return self.animation_counter > 0
 
     def button_callback(self):
-        if not self.buttons[1].value:  # Next animation button
-            print("button_callback: Next animation button pressed")
-            self.update_animation_index(1)
-        if not self.buttons[0].value:  # Previous animation button
-            print("button_callback: Previous animation button pressed")
-            self.update_animation_index(-1)
+        for i, button in enumerate(self.buttons):
+            current_state = button.value
+            if current_state != self.button_states[i]:
+                if not current_state:  # Button press detected
+                    if i == 1:  # Next animation button
+                        print("button_callback: Next animation button pressed")
+                        self.update_animation_index(1)
+                    elif i == 0:  # Previous animation button
+                        print("button_callback: Previous animation button pressed")
+                        self.update_animation_index(-1)
+            self.button_states[i] = current_state
 
     async def check_buttons(self):
         while True:

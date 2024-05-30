@@ -125,18 +125,33 @@ async def main():
         asyncio.create_task(battery_monitoring_routine(stage, display, battery_monitoring, user_request))
 
     while True:
-        for index, msg in enumerate(config.messages):
-            mando_message.text = msg
-            if user_request.get_scroll_speed_for_animation() > 0:
-                mando_message.x = display.width  # Reset the text position to the start for each message
-                while mando_message.x + mando_message.bounding_box[2] > 0:
-                    if user_request.get_scroll_speed_for_animation() > 0:
-                        mando_message.x -= user_request.get_scroll_speed_for_animation()  # Move text to the left
-                        display.refresh()
-                        await asyncio.sleep(0.01)
-                    else:
-                        # If scroll speed is 0, break the inner while loop
-                        break
+        if "Scroll" in user_request.get_animation_selected_name():
+            for index, msg in enumerate(config.messages):
+                mando_message.text = msg
+                if user_request.get_scroll_speed_for_animation() > 0:
+                    mando_message.x = display.width  # Reset the text position to the start for each message
+                    while mando_message.x + mando_message.bounding_box[2] > 0:
+                        if ( ( user_request.get_scroll_speed_for_animation() > 0 ) and 
+                             ( "Scroll" in user_request.get_animation_selected_name() ) ):
+                            mando_message.x -= user_request.get_scroll_speed_for_animation()  # Move text to the left
+                            display.refresh()
+                            await asyncio.sleep(0.01)
+                        else:
+                            # If scroll speed is 0, break the inner while loop
+                            break
+                        
+                        # Check for user requested changes
+                        if user_request.should_show_speed_indicator():
+                            speed_indicator.text = f"{user_request.get_animation_selected_name()}"
+                            speed_indicator.hidden = False
+                            user_request.decrement_animation_counter()
+                        else:
+                            speed_indicator.hidden = True
+                else:
+                    # Non-Moving Text
+                    mando_message.x = int((display.width - maxwidth) / 2) - 1
+                    display.refresh()
+                    await asyncio.sleep(config.delays[index])
                     
                     # Check for user requested changes
                     if user_request.should_show_speed_indicator():
@@ -145,21 +160,16 @@ async def main():
                         user_request.decrement_animation_counter()
                     else:
                         speed_indicator.hidden = True
-            else:
-                # Non-Moving Text
-                mando_message.x = int((display.width - maxwidth) / 2) - 1
                 display.refresh()
-                await asyncio.sleep(config.delays[index])
-                
-                # Check for user requested changes
-                if user_request.should_show_speed_indicator():
-                    speed_indicator.text = f"{user_request.get_animation_selected_name()}"
-                    speed_indicator.hidden = False
-                    user_request.decrement_animation_counter()
-                else:
-                    speed_indicator.hidden = True
+        
+        elif "Heart" in user_request.get_animation_selected_name():
+            # Placeholder for Heart Monitor Animation
+            debug_print("Heart Monitor animation selected.")
+            # Implement the heart monitor animation logic here
+            await asyncio.sleep(config.delays[0])
 
-            display.refresh()
+        else:
+            debug_print("Unknown animation selected.")
 
 async def run():
     await asyncio.gather(main(), user_request.check_buttons())
