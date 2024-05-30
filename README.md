@@ -4,6 +4,8 @@
 * Added debugging prints for boards with serial ports.
 * Additional board support. Compatibility for boards with a built in LCD screens.
 * Fixed broken links
+* Deep sleep to save power after 1 hour of no interaction. Press any button to wake.
+* Scrolling text, use Button press to change animation speed
 
 
 ![Image](Images/MandoChannel.jpg)
