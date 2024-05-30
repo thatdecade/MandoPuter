@@ -38,6 +38,7 @@ A basic electronics system that will display Mandalorian characters on a small d
 * Disable the onboard LED to save power
 * RAM efficient and easy to understand implementation
 * Deep sleep to save power after 1 hour of no interaction. Press any button to wake.
+* Scrolling text, use Button press to change animation speed
 
 ## Wish List:
 

@@ -13,7 +13,7 @@ def init(button_pins, user_timeout=3600):
     if not button_pins:
         raise RuntimeError("No button pins provided for wakeup")
 
-    print(f"timeout_seconds: {timeout_seconds}")
+    #print(f"timeout_seconds: {timeout_seconds}")
     return button_pins
 
 def deepsleep(button_pins):
@@ -37,5 +37,5 @@ def check_sleep(button_pins):
         deepsleep(button_pins)
         print("woke up")
 
-    print(f"current_time: {current_time} >= timeout_seconds: {timeout_seconds}")
+    #print(f"current_time: {current_time} >= timeout_seconds: {timeout_seconds}")
     return (current_time - last_activity_time)

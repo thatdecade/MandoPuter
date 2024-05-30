@@ -6,6 +6,10 @@ import display_images
 from adafruit_display_text import label
 import adafruit_imageload
 import sleep
+import digitalio
+import board
+import asyncio
+from adafruit_bitmap_font import bitmap_font #TBD, move dependancy to display lib.
 
 # -----------------------------------------------------------------------------
 # Board Configuration
@@ -48,7 +52,10 @@ LOW_BATT_LEVEL = 10  # Show the low battery icon when the battery goes below thi
 ENABLE_LEDS = 1  # Set to 1 to turn on LEDs for debugging, set to 0 to save battery
 DEBUG_SERIAL = 1  # If your board has a debug port, you can read the system messages.
 
-SLEEP_TIMEOUT_SECONDS = 15 # 3600 seconds = 1 hour
+SLEEP_TIMEOUT_SECONDS = 3600 # 3600 seconds = 1 hour
+
+# Enable button scrolling
+ENABLE_BUTTON_SCROLLING = 1  # Set to 1 to enable button scrolling
 
 # -----------------------------------------------------------------------------
 # Banner graphics settings
@@ -125,56 +132,137 @@ if SHOW_IMG:
         display_images.display_image(display, IMG2, IMG2_HOLD)
         debug_print(f"Displayed image: {IMG2}")
 
-# Initialize sleep module
 button_pins = None
+buttons = None
 if hasattr(board_setup, 'configure_buttons'):
     button_pins = board_setup.configure_buttons()
+    
+    # Initialize sleep module
     sleep.init(button_pins, SLEEP_TIMEOUT_SECONDS)
     debug_print("Sleep timer started")
+    
+    # Setup buttons for user interaction
+    if ENABLE_BUTTON_SCROLLING:
+        buttons = []
+        for pin in button_pins:
+            button = digitalio.DigitalInOut(pin)
+            button.direction = digitalio.Direction.INPUT
+            button.pull = digitalio.Pull.UP
+            buttons.append(button)
+
 else:
     debug_print("No button configuration found in board_setup.")
 
-# Main loop
-gc.collect()
-debug_print("Starting main loop")
+scroll_speed = 0
+animation_counter = 0
 
-stage = displayio.Group()
-display.show(stage)
-text = label.Label(font, text=messages[0], color=TEXT_COLOR)
-stage.append(text)
+def button_callback():
+    global scroll_speed, animation_counter
 
-maxwidth = max(text.bounding_box[2] for msg in messages)
-text.x = int((display.width - maxwidth) / 2) - 1
-text.y = int(display.height / 2) + offset
+    if not buttons[1].value:  # Increase speed button
+        if scroll_speed < 10:
+            scroll_speed += 1
+            debug_print(f"Increased scroll speed to {scroll_speed}")
+        animation_counter = 10
 
-if BATTERY_MON:
-    lowbattImg, lowbattPal = adafruit_imageload.load("LowBatt.bmp", bitmap=displayio.Bitmap, palette=displayio.Palette)
-    lowbattX = int(display.width - lowbattImg.width)
-    lowbattY = int(display.height - lowbattImg.height)
-    batt_tile = displayio.TileGrid(lowbattImg, pixel_shader=lowbattPal, x=lowbattX, y=lowbattY)
+    if not buttons[0].value:  # Decrease speed button
+        if scroll_speed > 0:
+            scroll_speed -= 1
+            debug_print(f"Decreased scroll speed to {scroll_speed}")
+        animation_counter = 10
 
-low_batt_icon = 0
+async def check_buttons():
+    while True:
+        button_callback()
+        await asyncio.sleep(0.1)
 
-while True:
-    for index, msg in enumerate(messages):
-        text.text = msg
-        display.refresh()
-        time.sleep(delays[index])
-        
+async def main():
+    global animation_counter
+
+    gc.collect()
+    debug_print("Starting main loop")
+
+    stage = displayio.Group()
+    display.show(stage)
+    mando_message = label.Label(font, text=messages[0], color=TEXT_COLOR)
+    stage.append(mando_message)
+
+    maxwidth = max(mando_message.bounding_box[2] for msg in messages)
+    mando_message.x = int((display.width - maxwidth) / 2) - 1
+    mando_message.y = int(display.height / 2) + offset
+
+    # Setup speed indicator
+    speed_indicator = label.Label(bitmap_font.load_font("Alef-Bold-12.bdf"), text=f"Scroll Speed {scroll_speed}", color=0xFFFFFF)
+    speed_indicator.x = 0
+    speed_indicator.y = display.height - 10  # Adjust position to be at the bottom left
+    stage.append(speed_indicator)
+    speed_indicator.hidden = True
+
     if BATTERY_MON:
-        batt_percent = battery_monitor.get_batt_percent(battery_monitoring)
-        debug_print(f"Battery percentage: {batt_percent}%")
-        
-        if batt_percent < LOW_BATT_LEVEL:
-            if low_batt_icon == 0:
-                stage.append(batt_tile)
-                low_batt_icon = 1
-                debug_print("Low battery icon displayed")
-        else:
-            if low_batt_icon > 0:
-                stage.pop()
-                low_batt_icon = 0
-                debug_print("Low battery icon removed")
-    
-    if button_pins:
-        debug_print(f"sleep timer: {sleep.check_sleep(button_pins)}");
+        lowbattImg, lowbattPal = adafruit_imageload.load("LowBatt.bmp", bitmap=displayio.Bitmap, palette=displayio.Palette)
+        lowbattX = int(display.width - lowbattImg.width)
+        lowbattY = int(display.height - lowbattImg.height)
+        batt_tile = displayio.TileGrid(lowbattImg, pixel_shader=lowbattPal, x=lowbattX, y=lowbattY)
+
+    low_batt_icon = 0
+
+    while True:
+        for index, msg in enumerate(messages):
+            mando_message.text = msg
+            if scroll_speed > 0:
+                mando_message.x = display.width  # Reset the text position to the start for each message
+                while mando_message.x + mando_message.bounding_box[2] > 0:
+                    if scroll_speed > 0:
+                        mando_message.x -= scroll_speed  # Move text to the left
+                        display.refresh()
+                        await asyncio.sleep(0.01)  # Small delay for smooth scrolling
+                    else:
+                        # If scroll speed is 0, break the inner while loop
+                        break
+                                
+                    #TBD, move to own function
+                    if animation_counter > 0:
+                        speed_indicator.text = f"Scroll Speed {scroll_speed}"
+                        speed_indicator.hidden = False
+                        animation_counter = 0 #no decrement for static image
+                    else:
+                        speed_indicator.hidden = True
+
+            else:
+                # Non Moving Text
+                mando_message.x = int((display.width - maxwidth) / 2) - 1
+                display.refresh()
+                await asyncio.sleep(delays[index])
+
+                    #TBD, move duplicate code to own function
+                if animation_counter > 0:
+                    speed_indicator.text = f"Scroll Speed {scroll_speed}"
+                    speed_indicator.hidden = False
+                    animation_counter -= 1
+                else:
+                    speed_indicator.hidden = True
+
+            display.refresh()
+
+        if BATTERY_MON:
+            batt_percent = battery_monitor.get_batt_percent(battery_monitoring)
+            debug_print(f"Battery percentage: {batt_percent}%")
+            
+            if batt_percent < LOW_BATT_LEVEL:
+                if low_batt_icon == 0:
+                    stage.append(batt_tile)
+                    low_batt_icon = 1
+                    debug_print("Low battery icon displayed")
+            else:
+                if low_batt_icon > 0:
+                    stage.pop()
+                    low_batt_icon = 0
+                    debug_print("Low battery icon removed")
+
+        debug_print(f"Sleep timer: {sleep.check_sleep(button_pins)}")
+
+# Run the main function and the button checker coroutine
+async def run():
+    await asyncio.gather(main(), check_buttons())
+
+asyncio.run(run())
