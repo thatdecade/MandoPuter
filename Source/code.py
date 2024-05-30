@@ -47,7 +47,8 @@ NAME_HOLD = 3.0                   # How many seconds to display the name
 # Battery monitoring settings
 BATTERY_SZ = 500  # Size of battery in mAh (only for the ESP32-S3 board)
 BATTERY_MON = 1  # Set to 1 to enable the battery monitor, 0 to disable it
-LOW_BATT_LEVEL = 10  # Show the low battery icon when the battery goes below this percentage
+LOW_BATT_LEVEL = 20  # Show the low battery icon when the battery goes below this percentage
+LOW_BATT_SHUTDOWN_LEVEL = 90  # Shutdown when battery goes below this percentage
 
 # Other settings for debugging
 ENABLE_LEDS = 1  # Set to 1 to turn on LEDs for debugging, set to 0 to save battery
@@ -140,7 +141,7 @@ if hasattr(board_setup, 'configure_buttons'):
     debug_print("Sleep timer started")
 
     # Setup buttons for user interaction
-    user_request = UserRequest(button_pins, animation_select)
+    user_request = UserRequest(button_pins)
 
 else:
     debug_print("No button configuration found in board_setup.")
@@ -159,7 +160,7 @@ async def main():
     mando_message.y = int(display.height / 2) + offset
 
     # Setup speed indicator
-    speed_indicator = label.Label(bitmap_font.load_font("Alef-Bold-12.bdf"), text=f"{animation_select[0]}", color=0xFFFFFF)
+    speed_indicator = label.Label(bitmap_font.load_font("Alef-Bold-12.bdf"), text=f"{user_request.get_animation_selected_name()}", color=0xFFFFFF)
     speed_indicator.x = 0
     speed_indicator.y = display.height - 10
     stage.append(speed_indicator)
@@ -189,7 +190,7 @@ async def main():
                     
                     # Check for user requested changes
                     if user_request.should_show_speed_indicator():
-                        speed_indicator.text = f"{animation_select[user_request.selected_animation_index]}"
+                        speed_indicator.text = f"{user_request.get_animation_selected_name()}"
                         speed_indicator.hidden = False
                         user_request.decrement_animation_counter()
                     else:
@@ -202,7 +203,7 @@ async def main():
                 
                 # Check for user requested changes
                 if user_request.should_show_speed_indicator():
-                    speed_indicator.text = f"{animation_select[user_request.selected_animation_index]}"
+                    speed_indicator.text = f"{user_request.get_animation_selected_name()}"
                     speed_indicator.hidden = False
                     user_request.decrement_animation_counter()
                 else:
@@ -214,7 +215,13 @@ async def main():
             batt_percent = battery_monitor.get_batt_percent(battery_monitoring)
             debug_print(f"Battery percentage: {batt_percent}%")
             
-            if batt_percent < LOW_BATT_LEVEL:
+            if batt_percent < LOW_BATT_SHUTDOWN_LEVEL:
+                debug_print("Entering deep sleep due to low battery")
+                display_images.display_name(display, bitmap_font.load_font("Alef-Bold-12.bdf"), "Battery Low.\nShutting Down...", 5, 0xFF0000)
+                user_request.stop_polling()
+                sleep.deepsleep(button_pins)
+            
+            elif batt_percent < LOW_BATT_LEVEL:
                 if low_batt_icon == 0:
                     stage.append(batt_tile)
                     low_batt_icon = 1

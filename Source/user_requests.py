@@ -3,8 +3,8 @@ import board
 import asyncio
 
 class UserRequest:
-    def __init__(self, button_pins, animation_select):
-        self.animation_select = animation_select
+    def __init__(self, button_pins):
+        self.animation_select = ["No Scroll", "Scroll Speed 2", "Scroll Speed 10"]
         self.selected_animation_index = 0
         self.animation_counter = 0
 
@@ -15,8 +15,15 @@ class UserRequest:
             button.pull = digitalio.Pull.UP
             self.buttons.append(button)
 
-        print(f"UserRequest initialized with animation_select: {animation_select}")
-
+        print(f"UserRequest initialized with animations: {self.animation_select}")
+    
+    def stop_polling(self):
+      for button in self.buttons:
+          button.deinit()
+    
+    def get_animation_selected_name(self):
+        return self.animation_select[self.selected_animation_index]
+    
     def get_scroll_speed_for_animation(self):
         speed = 0
         if self.selected_animation_index == 0:
