@@ -22,6 +22,16 @@ DISPLAY = "1.14"  # Pre-Beskar   # Adafruit 1.14" LCD display  https://www.adafr
 # DISPLAY = "1.44"               # Adafruit 1.44" LCD display  https://www.adafruit.com/product/2088
 # DISPLAY = "0.96"               # Adafruit 0.96" LCD display  https://www.adafruit.com/product/3533
 
+# Setting screen resolution based on display type, do not change these
+if DISPLAY == "1.30":
+    RESOLUTION = 240
+elif DISPLAY == "1.14":
+    RESOLUTION = 135
+elif DISPLAY == "1.44":
+    RESOLUTION = 128
+elif DISPLAY == "0.96":
+    RESOLUTION = 80
+
 # -----------------------------------------------------------------------------
 # Preference Configuration
 # -----------------------------------------------------------------------------
@@ -55,11 +65,11 @@ SLEEP_TIMEOUT_SECONDS = 3600  # 3600 seconds = 1 hour
 SHOW_IMG = 0  # How many images to show. 0 = no images, 1 = 1 image, 2 = 2 images
 
 # File name of the first 8-bit BMP graphic to be shown after each text sequence
-IMG1 = f"TheMandalorian{{RESOLUTION}}.bmp"
+IMG1 = f"TheMandalorian{RESOLUTION}.bmp"
 IMG1_HOLD = 5.00  # How long the first image is displayed in seconds
 
 # File name of the second 8-bit BMP graphic to be shown after the first image
-IMG2 = f"BabyYoda{{RESOLUTION}}.bmp"
+IMG2 = f"BabyYoda{RESOLUTION}.bmp"
 IMG2_HOLD = 5.00  # How long the second image is displayed in seconds
 
 # -----------------------------------------------------------------------------

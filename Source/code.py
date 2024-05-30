@@ -12,6 +12,8 @@ import asyncio
 from adafruit_bitmap_font import bitmap_font
 from user_requests import UserRequest
 import configure_me as config
+from adafruit_display_shapes.line import Line
+import random
 
 # -----------------------------------------------------------------------------
 
@@ -105,10 +107,11 @@ async def main():
     gc.collect()
     debug_print("Starting main loop")
 
-    stage = displayio.Group()
-    display.show(stage)
+    mandtext_stage  = displayio.Group()
+    heart_stage     = displayio.Group()
+    display.show(mandtext_stage)
     mando_message = label.Label(font, text=config.messages[0], color=config.TEXT_COLOR)
-    stage.append(mando_message)
+    mandtext_stage.append(mando_message)
 
     maxwidth = max(mando_message.bounding_box[2] for msg in config.messages)
     mando_message.x = int((display.width - maxwidth) / 2) - 1
@@ -118,14 +121,15 @@ async def main():
     speed_indicator = label.Label(bitmap_font.load_font("Alef-Bold-12.bdf"), text=f"{user_request.get_animation_selected_name()}", color=0xFFFFFF)
     speed_indicator.x = 0
     speed_indicator.y = display.height - 10
-    stage.append(speed_indicator)
+    mandtext_stage.append(speed_indicator)
     speed_indicator.hidden = True
 
     if config.BATTERY_MON:
-        asyncio.create_task(battery_monitoring_routine(stage, display, battery_monitoring, user_request))
+        asyncio.create_task(battery_monitoring_routine(mandtext_stage, display, battery_monitoring, user_request))
 
     while True:
         if "Scroll" in user_request.get_animation_selected_name():
+            display.show(mandtext_stage)
             for index, msg in enumerate(config.messages):
                 mando_message.text = msg
                 if user_request.get_scroll_speed_for_animation() > 0:
@@ -147,7 +151,7 @@ async def main():
                             user_request.decrement_animation_counter()
                         else:
                             speed_indicator.hidden = True
-                else:
+                elif "Scroll" in user_request.get_animation_selected_name():
                     # Non-Moving Text
                     mando_message.x = int((display.width - maxwidth) / 2) - 1
                     display.refresh()
@@ -163,11 +167,53 @@ async def main():
                 display.refresh()
         
         elif "Heart" in user_request.get_animation_selected_name():
-            # Placeholder for Heart Monitor Animation
             debug_print("Heart Monitor animation selected.")
-            # Implement the heart monitor animation logic here
-            await asyncio.sleep(config.delays[0])
+            display.show(heart_stage)
 
+            # Heart monitor animation loop with a single pixel
+            random_point = (display.width // 2) + random.randint(-50, 50)
+            y_position = display.height // 2
+
+            for x in range(display.width):
+                #adjust start of line for: off screen left, before random point, and after random point
+                if x < random_point:
+                    if x > 20:
+                        x2 = x - 20 # before random point
+                        x1 = x
+                    else:
+                        x2 = 0  # off screen left
+                        x1 = x
+                else:
+                    if x > random_point + 20:
+                        x1 = x - 20 #after random point
+                        x2 = x
+                    else:
+                        x1 = random_point # "off screen" random point
+                        x2 = x
+                    
+                # Draw the moving red line
+                heart_stage.append(Line(x2, y_position, x1, y_position, color=0xFF0000))
+                display.refresh()
+                await asyncio.sleep(0.001)
+                
+                # Draw peak line segments at random_point
+                if x == random_point:
+                    heart_stage.pop()
+                    heart_stage.append(Line(x, y_position, x+5, y_position-20, color=0xFF0000))
+                    heart_stage.append(Line(x+5, y_position-20, x+10, y_position, color=0xFF0000))
+                    
+                    #animate the moving red line to black
+                    for x2 in range(20):
+                        heart_stage.append(Line(x - 20 + x2, y_position, x, y_position, color=0xFF0000))
+                        display.refresh()
+                        heart_stage.pop()
+                        await asyncio.sleep(0.001)
+                        
+                    x += 10  # Skip ahead to continue the flat line
+
+                while heart_stage:
+                    heart_stage.pop()
+            
         else:
             debug_print("Unknown animation selected.")
 

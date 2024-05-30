@@ -5,7 +5,7 @@ import asyncio
 class UserRequest:
     def __init__(self, button_pins):
         self.animation_select = ["No Scroll", "Scroll Speed 2", "Scroll Speed 10", "Heart Monitor"]
-        self.selected_animation_index = 0
+        self.selected_animation_index = 3 #TBD
         self.animation_counter = 0
 
         self.buttons = []
