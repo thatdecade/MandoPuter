@@ -9,7 +9,8 @@ import sleep
 import digitalio
 import board
 import asyncio
-from adafruit_bitmap_font import bitmap_font #TBD, move dependancy to display lib.
+from adafruit_bitmap_font import bitmap_font
+from user_requests import UserRequest
 
 # -----------------------------------------------------------------------------
 # Board Configuration
@@ -38,7 +39,7 @@ DISPLAY = "1.14" #Pre-Beskar   # Adafruit 1.14" LCD display  https://www.adafrui
 DISP_BRIGHT = 80
 
 # Owner name settings
-SHOW_NAME = 1                     # Set to 1 to display the name, or 0 to not display a name
+SHOW_NAME = 0                     # Set to 1 to display the name, or 0 to not display a name
 OWNER_NAME = "Your Name Here"     # Name of the owner to be shown
 NAME_COLOR = 0x00FF00             # Green on black (choose colors here - https://www.color-hex.com/)
 NAME_HOLD = 3.0                   # How many seconds to display the name
@@ -53,9 +54,6 @@ ENABLE_LEDS = 1  # Set to 1 to turn on LEDs for debugging, set to 0 to save batt
 DEBUG_SERIAL = 1  # If your board has a debug port, you can read the system messages.
 
 SLEEP_TIMEOUT_SECONDS = 3600 # 3600 seconds = 1 hour
-
-# Enable button scrolling
-ENABLE_BUTTON_SCROLLING = 1  # Set to 1 to enable button scrolling
 
 # -----------------------------------------------------------------------------
 # Banner graphics settings
@@ -72,7 +70,7 @@ elif DISPLAY == "0.96":
     RESOLUTION = 80
 
 # Banner graphic(s) shown after the owner's name and before the sequence starts
-SHOW_IMG = 2  # How many images to show. 0 = no images, 1 = 1 image, 2 = 2 images
+SHOW_IMG = 0  # How many images to show. 0 = no images, 1 = 1 image, 2 = 2 images
 
 IMG1 = f"TheMandalorian{RESOLUTION}.bmp"  # File name of the first 8-bit BMP graphic to be shown after each text sequence
 IMG1_HOLD = 5.00  # How long the first image is displayed in seconds
@@ -126,11 +124,11 @@ if SHOW_NAME:
 
 # Show the banner graphic(s)
 if SHOW_IMG:
+    debug_print(f"Display image: {IMG1}")
     display_images.display_image(display, IMG1, IMG1_HOLD)
-    debug_print(f"Displayed image: {IMG1}")
     if SHOW_IMG > 1:
+        debug_print(f"Display image: {IMG2}")
         display_images.display_image(display, IMG2, IMG2_HOLD)
-        debug_print(f"Displayed image: {IMG2}")
 
 button_pins = None
 buttons = None
@@ -140,45 +138,14 @@ if hasattr(board_setup, 'configure_buttons'):
     # Initialize sleep module
     sleep.init(button_pins, SLEEP_TIMEOUT_SECONDS)
     debug_print("Sleep timer started")
-    
+
     # Setup buttons for user interaction
-    if ENABLE_BUTTON_SCROLLING:
-        buttons = []
-        for pin in button_pins:
-            button = digitalio.DigitalInOut(pin)
-            button.direction = digitalio.Direction.INPUT
-            button.pull = digitalio.Pull.UP
-            buttons.append(button)
+    user_request = UserRequest(button_pins, animation_select)
 
 else:
     debug_print("No button configuration found in board_setup.")
 
-scroll_speed = 0
-animation_counter = 0
-
-def button_callback():
-    global scroll_speed, animation_counter
-
-    if not buttons[1].value:  # Increase speed button
-        if scroll_speed < 10:
-            scroll_speed += 1
-            debug_print(f"Increased scroll speed to {scroll_speed}")
-        animation_counter = 10
-
-    if not buttons[0].value:  # Decrease speed button
-        if scroll_speed > 0:
-            scroll_speed -= 1
-            debug_print(f"Decreased scroll speed to {scroll_speed}")
-        animation_counter = 10
-
-async def check_buttons():
-    while True:
-        button_callback()
-        await asyncio.sleep(0.1)
-
 async def main():
-    global animation_counter
-
     gc.collect()
     debug_print("Starting main loop")
 
@@ -192,9 +159,9 @@ async def main():
     mando_message.y = int(display.height / 2) + offset
 
     # Setup speed indicator
-    speed_indicator = label.Label(bitmap_font.load_font("Alef-Bold-12.bdf"), text=f"Scroll Speed {scroll_speed}", color=0xFFFFFF)
+    speed_indicator = label.Label(bitmap_font.load_font("Alef-Bold-12.bdf"), text=f"{animation_select[0]}", color=0xFFFFFF)
     speed_indicator.x = 0
-    speed_indicator.y = display.height - 10  # Adjust position to be at the bottom left
+    speed_indicator.y = display.height - 10
     stage.append(speed_indicator)
     speed_indicator.hidden = True
 
@@ -209,36 +176,35 @@ async def main():
     while True:
         for index, msg in enumerate(messages):
             mando_message.text = msg
-            if scroll_speed > 0:
+            if user_request.get_scroll_speed_for_animation() > 0:
                 mando_message.x = display.width  # Reset the text position to the start for each message
                 while mando_message.x + mando_message.bounding_box[2] > 0:
-                    if scroll_speed > 0:
-                        mando_message.x -= scroll_speed  # Move text to the left
+                    if user_request.get_scroll_speed_for_animation() > 0:
+                        mando_message.x -= user_request.get_scroll_speed_for_animation()  # Move text to the left
                         display.refresh()
-                        await asyncio.sleep(0.01)  # Small delay for smooth scrolling
+                        await asyncio.sleep(0.01)
                     else:
                         # If scroll speed is 0, break the inner while loop
                         break
-                                
-                    #TBD, move to own function
-                    if animation_counter > 0:
-                        speed_indicator.text = f"Scroll Speed {scroll_speed}"
+                    
+                    # Check for user requested changes
+                    if user_request.should_show_speed_indicator():
+                        speed_indicator.text = f"{animation_select[user_request.selected_animation_index]}"
                         speed_indicator.hidden = False
-                        animation_counter = 0 #no decrement for static image
+                        user_request.decrement_animation_counter()
                     else:
                         speed_indicator.hidden = True
-
             else:
-                # Non Moving Text
+                # Non-Moving Text
                 mando_message.x = int((display.width - maxwidth) / 2) - 1
                 display.refresh()
                 await asyncio.sleep(delays[index])
-
-                    #TBD, move duplicate code to own function
-                if animation_counter > 0:
-                    speed_indicator.text = f"Scroll Speed {scroll_speed}"
+                
+                # Check for user requested changes
+                if user_request.should_show_speed_indicator():
+                    speed_indicator.text = f"{animation_select[user_request.selected_animation_index]}"
                     speed_indicator.hidden = False
-                    animation_counter -= 1
+                    user_request.decrement_animation_counter()
                 else:
                     speed_indicator.hidden = True
 
@@ -261,8 +227,7 @@ async def main():
 
         debug_print(f"Sleep timer: {sleep.check_sleep(button_pins)}")
 
-# Run the main function and the button checker coroutine
 async def run():
-    await asyncio.gather(main(), check_buttons())
+    await asyncio.gather(main(), user_request.check_buttons())
 
 asyncio.run(run())
