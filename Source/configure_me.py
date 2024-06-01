@@ -48,7 +48,7 @@ NAME_HOLD = 3.0  # How many seconds to display the name
 # Battery monitoring settings
 BATTERY_SZ = 500  # Size of battery in mAh (only for the ESP32-S3 board)
 BATTERY_MON = 1  # Set to 1 to enable the battery monitor, 0 to disable it
-LOW_BATT_LEVEL = 20  # Show the low battery icon when the battery goes below this percentage
+LOW_BATT_LEVEL = 15  # Show the low battery icon when the battery goes below this percentage
 LOW_BATT_SHUTDOWN_LEVEL = 10  # Shutdown when battery goes below this percentage
 
 # Other settings for debugging

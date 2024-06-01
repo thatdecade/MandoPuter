@@ -4,9 +4,9 @@ import asyncio
 
 class UserRequest:
     def __init__(self, button_pins):
-        self.animation_select = ["No Scroll", "Scroll Speed 2", "Scroll Speed 10", "Heart Monitor"]
-        self.selected_animation_index = 3 #TBD
-        self.animation_counter = 0
+        self.animation_select = ["Mando Characters", "Scroll Speed 2", "Scroll Speed 10", "Heart Monitor", "Planet"]
+        self.selected_animation_index = 4 #TBD 3
+        self.animation_counter = 10
 
         self.buttons = []
         self.button_states = []
@@ -45,9 +45,18 @@ class UserRequest:
     def decrement_animation_counter(self):
         if self.animation_counter > 0:
             self.animation_counter -= 1
+            if self.animation_counter < 0:
+                self.animation_counter = 0
         return self.animation_counter
 
-    def should_show_speed_indicator(self):
+    def decrement_animation_counter_fast(self):
+        if self.animation_counter > 0:
+            self.animation_counter -= 2
+            if self.animation_counter < 0:
+                self.animation_counter = 0
+        return self.animation_counter
+
+    def should_show_selection_indicator(self):
         return self.animation_counter > 0
 
     def button_callback(self):

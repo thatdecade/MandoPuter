@@ -21,6 +21,8 @@ def init():
     lcd_light = board.D10
 
     display_bus = displayio.FourWire(spi, command=tft_dc, chip_select=tft_cs, baudrate=SPI_SPEED, reset=lcd_rst, polarity=0, phase=0)
+    
+    #TBD, disable WIFI
 
     return display_bus, lcd_light
 
